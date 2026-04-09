@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+
+<!-- 공통 head 프래그먼트 삽입 -->
+<head th:replace="~{layout/default :: head('도서 목록')}"></head>
+
+<body class="bg-light">
+
+<!-- 공통 내비바 삽입 -->
+<nav th:replace="~{layout/default :: navbar}"></nav>
+
+<div class="container my-4">
+
+    <!-- ── 페이지 헤더 ─────────────────────────────────── -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-list-ul me-2"></i>도서 목록
+        </h2>
+        <a th:href="@{/books/new}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> 도서 등록
+        </a>
+    </div>
+
+    <!-- ── 플래시 메시지 (등록/수정/삭제 후 리다이렉트 시 표시) ── -->
+    <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        <span th:text="${successMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- ── 검색 폼 ──────────────────────────────────────── -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-white fw-semibold">
+            <i class="bi bi-search me-1"></i> 검색 조건
+        </div>
+        <div class="card-body">
+            <form th:action="@{/books}" method="get" class="row g-3 align-items-end">
+                <!-- 카테고리 필터 -->
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">카테고리</label>
+                    <select name="categoryId" class="form-select">
+                        <option value="">전체</option>
+                        <option th:each="cat : ${categories}"
+                                th:value="${cat.categoryId}"
+                                th:text="${cat.categoryName}"
+                                th:selected="${searchDto.categoryId != null and searchDto.categoryId == cat.categoryId}">
+                        </option>
+                    </select>
+                </div>
+                <!-- 제목 검색 -->
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">제목</label>
+                    <input type="text" name="title" class="form-control"
+                           placeholder="제목 검색" th:value="${searchDto.title}">
+                </div>
+                <!-- 저자 검색 -->
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">저자</label>
+                    <input type="text" name="author" class="form-control"
+                           placeholder="저자 검색" th:value="${searchDto.author}">
+                </div>
+                <!-- 버튼 -->
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-50">
+                        <i class="bi bi-search"></i> 검색
+                    </button>
+                    <a th:href="@{/books}" class="btn btn-outline-secondary w-50">
+                        <i class="bi bi-arrow-counterclockwise"></i> 초기화
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── 검색 결과 건수 ─────────────────────────────────── -->
+    <div class="mb-2 text-muted small">
+        전체 <strong th:text="${page.totalElements}">0</strong>건
+        &nbsp;/&nbsp;
+        <span th:text="${page.currentPage}">1</span> /
+        <span th:text="${page.totalPages > 0 ? page.totalPages : 1}">1</span> 페이지
+    </div>
+
+    <!-- ── 도서 목록 테이블 ───────────────────────────────── -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover table-bordered mb-0">
+                <thead class="table-primary text-center">
+                    <tr>
+                        <th style="width:60px">번호</th>
+                        <th class="text-start">제목</th>
+                        <th style="width:120px">저자</th>
+                        <th style="width:100px">카테고리</th>
+                        <th style="width:100px">가격</th>
+                        <th style="width:70px">재고</th>
+                        <th style="width:110px">관리</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 데이터 없음 -->
+                    <tr th:if="${#lists.isEmpty(page.content)}">
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                            등록된 도서가 없습니다.
+                        </td>
+                    </tr>
+                    <!-- 도서 목록 반복 -->
+                    <tr th:each="book : ${page.content}">
+                        <td class="text-center text-muted" th:text="${book.bookId}"></td>
+                        <td>
+                            <a th:href="@{/books/{id}(id=${book.bookId})}"
+                               class="text-decoration-none fw-semibold text-dark"
+                               th:text="${book.title}">
+                            </a>
+                        </td>
+                        <td class="text-center" th:text="${book.author}"></td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary" th:text="${book.categoryName ?: '-'}"></span>
+                        </td>
+                        <td class="text-end pe-3"
+                            th:text="${book.price != null ? #numbers.formatInteger(book.price, 0, 'COMMA') + '원' : '-'}">
+                        </td>
+                        <td class="text-center">
+                            <span th:classappend="${book.stock != null and book.stock > 0 ? 'bg-success' : 'bg-danger'}"
+                                  class="badge"
+                                  th:text="${book.stock != null ? book.stock : 0}">
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <!-- 수정 버튼 -->
+                            <a th:href="@{/books/{id}/edit(id=${book.bookId})}"
+                               class="btn btn-sm btn-outline-warning me-1"
+                               title="수정">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <!-- 삭제 버튼 (form POST) -->
+                            <form th:action="@{/books/{id}/delete(id=${book.bookId})}"
+                                  method="post"
+                                  class="d-inline"
+                                  onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="삭제">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── 페이지네이션 ───────────────────────────────────── -->
+    <nav th:if="${page.totalPages > 1}" aria-label="페이지 이동" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <!-- 이전 페이지 -->
+            <li class="page-item" th:classappend="${!page.hasPrevious()} ? 'disabled'">
+                <a class="page-link"
+                   th:href="@{/books(page=${page.currentPage - 1},
+                                    title=${searchDto.title},
+                                    author=${searchDto.author},
+                                    categoryId=${searchDto.categoryId})}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            <!-- 페이지 번호 목록 -->
+            <li th:each="pageNum : ${#numbers.sequence(page.startPage, page.endPage)}"
+                class="page-item"
+                th:classappend="${pageNum == page.currentPage} ? 'active'">
+                <a class="page-link"
+                   th:href="@{/books(page=${pageNum},
+                                    title=${searchDto.title},
+                                    author=${searchDto.author},
+                                    categoryId=${searchDto.categoryId})}"
+                   th:text="${pageNum}">
+                </a>
+            </li>
+            <!-- 다음 페이지 -->
+            <li class="page-item" th:classappend="${!page.hasNext()} ? 'disabled'">
+                <a class="page-link"
+                   th:href="@{/books(page=${page.currentPage + 1},
+                                    title=${searchDto.title},
+                                    author=${searchDto.author},
+                                    categoryId=${searchDto.categoryId})}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+</div><!-- /container -->
+
+<footer th:replace="~{layout/default :: footer}"></footer>
+<div th:replace="~{layout/default :: scripts}"></div>
+
+</body>
+</html>

@@ -1,0 +1,67 @@
+/* ================================================
+   도서 관리 시스템 커스텀 스타일
+   Bootstrap 5 기반 위에 추가 스타일 정의
+   ================================================ */
+
+/* 한국어 폰트 힌트 (시스템 폰트 우선 사용) */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', '맑은 고딕',
+                 'Noto Sans KR', sans-serif;
+}
+
+/* ── 테이블 ────────────────────────────────────── */
+.table-hover tbody tr:hover {
+    background-color: #eef3ff;
+    cursor: pointer;
+}
+
+/* ── 카드 ──────────────────────────────────────── */
+.card {
+    border-radius: 8px;
+    border-color: #dee2e6;
+}
+
+/* ── 내비바 ─────────────────────────────────────── */
+.navbar-brand {
+    font-size: 1.15rem;
+    letter-spacing: -0.3px;
+}
+
+/* ── 페이지네이션 ──────────────────────────────── */
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.pagination .page-link {
+    color: #0d6efd;
+}
+
+/* ── 폼 ────────────────────────────────────────── */
+.form-label {
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+}
+
+/* 유효성 오류 메시지 */
+.invalid-feedback {
+    font-size: 0.82rem;
+}
+
+/* ── 배지 ──────────────────────────────────────── */
+.badge {
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+}
+
+/* ── 버튼 ──────────────────────────────────────── */
+.btn-sm {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.82rem;
+}
+
+/* ── 성공 알림 ─────────────────────────────────── */
+.alert-success {
+    border-left: 4px solid #198754;
+}

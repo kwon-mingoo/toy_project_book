@@ -166,6 +166,43 @@ spring:
 
 ---
 
+## 환경변수 사용 (선택)
+
+`application.yml`의 DB 접속 정보는 환경변수로 덮어쓸 수 있습니다.  
+환경변수를 설정하지 않으면 `application.yml`의 기본값(`bookadmin` / `bookadmin123`)이 그대로 사용됩니다.
+
+### Windows (cmd)
+
+```cmd
+set DB_URL=jdbc:oracle:thin:@localhost:1521/XEPDB1
+set DB_USERNAME=mybookadmin
+set DB_PASSWORD=mypassword
+.\gradlew bootRun
+```
+
+### Windows (PowerShell)
+
+```powershell
+$env:DB_URL="jdbc:oracle:thin:@localhost:1521/XEPDB1"
+$env:DB_USERNAME="mybookadmin"
+$env:DB_PASSWORD="mypassword"
+.\gradlew bootRun
+```
+
+### Mac / Linux
+
+```bash
+export DB_URL=jdbc:oracle:thin:@localhost:1521/XEPDB1
+export DB_USERNAME=mybookadmin
+export DB_PASSWORD=mypassword
+./gradlew bootRun
+```
+
+> **보안 팁**: 운영 환경에서는 코드나 설정 파일에 비밀번호를 직접 적지 마세요.  
+> AWS Secrets Manager, HashiCorp Vault, Kubernetes Secret 등의 시크릿 매니저를 통해 환경변수를 주입하는 방식이 권장됩니다.
+
+---
+
 ## VS Code에서 실행하는 방법
 
 ### 필수 Extension 설치

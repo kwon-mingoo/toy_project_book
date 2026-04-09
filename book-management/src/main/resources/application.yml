@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    # Oracle XE 21c 기본 접속 정보 — 환경에 맞게 수정하세요
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
+    username: ${DB_USERNAME:bookadmin}
+    password: ${DB_PASSWORD:bookadmin123}
+    driver-class-name: oracle.jdbc.OracleDriver
+  thymeleaf:
+    cache: false   # 개발 중에는 false, 운영에서는 true로 변경
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.bookmanagement.domain, com.example.bookmanagement.dto
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    # MyBatis SQL 쿼리 로그 출력 (개발용)
+    com.example.bookmanagement.mapper: DEBUG
+
+server:
+  port: 8080

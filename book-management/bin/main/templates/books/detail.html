@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout/default :: head('도서 상세')}"></head>
+
+<body class="bg-light">
+
+<nav th:replace="~{layout/default :: navbar}"></nav>
+
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+
+            <!-- ── 페이지 헤더 ──────────────────────────── -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold mb-0">
+                    <i class="bi bi-book-open me-2"></i>도서 상세
+                </h2>
+                <a th:href="@{/books}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> 목록으로
+                </a>
+            </div>
+
+            <!-- ── 도서 상세 카드 ────────────────────────── -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-journal-bookmark me-2"></i>
+                        <span th:text="${book.title}">도서 제목</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless mb-0">
+                        <colgroup>
+                            <col style="width: 120px">
+                            <col>
+                        </colgroup>
+                        <tbody>
+                            <tr>
+                                <th class="text-muted">도서 번호</th>
+                                <td th:text="${book.bookId}"></td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">제목</th>
+                                <td class="fw-semibold" th:text="${book.title}"></td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">저자</th>
+                                <td th:text="${book.author}"></td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">출판사</th>
+                                <td th:text="${book.publisher ?: '-'}"></td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">카테고리</th>
+                                <td>
+                                    <span class="badge bg-secondary fs-6"
+                                          th:text="${book.categoryName ?: '미분류'}">
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">가격</th>
+                                <td class="text-primary fw-semibold"
+                                    th:text="${book.price != null ? #numbers.formatInteger(book.price, 0, 'COMMA') + '원' : '-'}">
+                                </td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">재고</th>
+                                <td>
+                                    <span th:classappend="${book.stock != null and book.stock > 0 ? 'bg-success' : 'bg-danger'}"
+                                          class="badge fs-6"
+                                          th:text="${(book.stock != null ? book.stock : 0) + '권'}">
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">등록일</th>
+                                <td th:text="${book.createdAt != null ? #dates.format(book.createdAt, 'yyyy-MM-dd') : '-'}"></td>
+                            </tr>
+                            <tr class="border-top">
+                                <th class="text-muted">수정일</th>
+                                <td th:text="${book.updatedAt != null ? #dates.format(book.updatedAt, 'yyyy-MM-dd') : '-'}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- 수정/삭제 버튼 -->
+                <div class="card-footer bg-white d-flex justify-content-end gap-2 py-3">
+                    <a th:href="@{/books/{id}/edit(id=${book.bookId})}"
+                       class="btn btn-warning">
+                        <i class="bi bi-pencil me-1"></i> 수정
+                    </a>
+                    <form th:action="@{/books/{id}/delete(id=${book.bookId})}"
+                          method="post"
+                          onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i> 삭제
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{layout/default :: footer}"></footer>
+<div th:replace="~{layout/default :: scripts}"></div>
+
+</body>
+</html>

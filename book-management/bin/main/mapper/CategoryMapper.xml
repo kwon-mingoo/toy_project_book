@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.bookmanagement.mapper.CategoryMapper">
+
+    <resultMap id="categoryResultMap" type="Category">
+        <id     property="categoryId"   column="CATEGORY_ID"/>
+        <result property="categoryName" column="CATEGORY_NAME"/>
+        <result property="createdAt"    column="CREATED_AT"/>
+    </resultMap>
+
+    <!-- 카테고리 전체 조회 -->
+    <select id="findAll" resultMap="categoryResultMap">
+        SELECT CATEGORY_ID, CATEGORY_NAME, CREATED_AT
+        FROM category
+        ORDER BY CATEGORY_ID
+    </select>
+
+    <!-- 카테고리 단건 조회 -->
+    <select id="findById" parameterType="long" resultMap="categoryResultMap">
+        SELECT CATEGORY_ID, CATEGORY_NAME, CREATED_AT
+        FROM category
+        WHERE CATEGORY_ID = #{categoryId}
+    </select>
+
+</mapper>

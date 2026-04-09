@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout/default :: head(${mode == 'create' ? '도서 등록' : '도서 수정'})}"></head>
+
+<body class="bg-light">
+
+<nav th:replace="~{layout/default :: navbar}"></nav>
+
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7 col-md-9">
+
+            <!-- ── 페이지 헤더 ──────────────────────────── -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold mb-0">
+                    <i th:class="${mode == 'create' ? 'bi bi-plus-square me-2' : 'bi bi-pencil-square me-2'}"></i>
+                    <span th:text="${mode == 'create' ? '도서 등록' : '도서 수정'}"></span>
+                </h2>
+                <a th:href="@{/books}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> 목록으로
+                </a>
+            </div>
+
+            <!-- ── 등록/수정 폼 ──────────────────────────── -->
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <!--
+                        등록 모드: action="/books"          method="post"
+                        수정 모드: action="/books/{id}/edit" method="post"
+                        th:object: 폼 바인딩 대상 객체 — th:field 에서 *{필드명} 으로 참조
+                    -->
+                    <form th:action="${mode == 'create' ? '/books' : '/books/' + book.bookId + '/edit'}"
+                          method="post"
+                          th:object="${book}">
+
+                        <!-- 제목 (필수) -->
+                        <div class="mb-3">
+                            <label for="title" class="form-label fw-semibold">
+                                제목 <span class="text-danger">*</span>
+                            </label>
+                            <!--
+                                th:field="*{title}": id, name, value 속성 자동 생성
+                                th:classappend: 유효성 오류 시 Bootstrap의 is-invalid 클래스 추가
+                            -->
+                            <input type="text"
+                                   id="title"
+                                   class="form-control"
+                                   th:classappend="${#fields.hasErrors('title')} ? 'is-invalid'"
+                                   th:field="*{title}"
+                                   placeholder="도서 제목을 입력하세요">
+                            <div class="invalid-feedback" th:errors="*{title}"></div>
+                        </div>
+
+                        <!-- 저자 (필수) -->
+                        <div class="mb-3">
+                            <label for="author" class="form-label fw-semibold">
+                                저자 <span class="text-danger">*</span>
+                            </label>
+                            <input type="text"
+                                   id="author"
+                                   class="form-control"
+                                   th:classappend="${#fields.hasErrors('author')} ? 'is-invalid'"
+                                   th:field="*{author}"
+                                   placeholder="저자를 입력하세요">
+                            <div class="invalid-feedback" th:errors="*{author}"></div>
+                        </div>
+
+                        <!-- 출판사 (선택) -->
+                        <div class="mb-3">
+                            <label for="publisher" class="form-label fw-semibold">출판사</label>
+                            <input type="text"
+                                   id="publisher"
+                                   class="form-control"
+                                   th:field="*{publisher}"
+                                   placeholder="출판사를 입력하세요">
+                        </div>
+
+                        <!-- 카테고리 + 가격 (2컬럼) -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="categoryId" class="form-label fw-semibold">카테고리</label>
+                                <select id="categoryId" class="form-select" th:field="*{categoryId}">
+                                    <option value="">카테고리 선택</option>
+                                    <option th:each="cat : ${categories}"
+                                            th:value="${cat.categoryId}"
+                                            th:text="${cat.categoryName}">
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="price" class="form-label fw-semibold">가격</label>
+                                <div class="input-group">
+                                    <input type="number"
+                                           id="price"
+                                           class="form-control"
+                                           th:classappend="${#fields.hasErrors('price')} ? 'is-invalid'"
+                                           th:field="*{price}"
+                                           placeholder="0"
+                                           min="0">
+                                    <span class="input-group-text">원</span>
+                                    <div class="invalid-feedback" th:errors="*{price}"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 재고 -->
+                        <div class="mb-4">
+                            <label for="stock" class="form-label fw-semibold">재고</label>
+                            <div class="input-group" style="max-width: 200px;">
+                                <input type="number"
+                                       id="stock"
+                                       class="form-control"
+                                       th:classappend="${#fields.hasErrors('stock')} ? 'is-invalid'"
+                                       th:field="*{stock}"
+                                       placeholder="0"
+                                       min="0">
+                                <span class="input-group-text">권</span>
+                                <div class="invalid-feedback" th:errors="*{stock}"></div>
+                            </div>
+                        </div>
+
+                        <!-- 액션 버튼 -->
+                        <div class="d-flex justify-content-end gap-2 pt-2 border-top">
+                            <a th:href="@{/books}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i> 취소
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i th:class="${mode == 'create' ? 'bi bi-save me-1' : 'bi bi-check-lg me-1'}"></i>
+                                <span th:text="${mode == 'create' ? '등록' : '수정 완료'}"></span>
+                            </button>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{layout/default :: footer}"></footer>
+<div th:replace="~{layout/default :: scripts}"></div>
+
+</body>
+</html>
