@@ -16,7 +16,7 @@ Spring Boot + MyBatis + Oracle + Thymeleaf를 활용한 CRUD 웹 애플리케이
 | View | Thymeleaf |
 | CSS | Bootstrap 5.3 (CDN) |
 | JS | jQuery 3.7 (CDN) |
-| Build | Gradle |
+| Build | Gradle 8.5 (Wrapper) |
 | Utility | Lombok, Spring Validation |
 
 ---
@@ -28,6 +28,9 @@ book-management/
 ├── .vscode/
 │   ├── launch.json          # VS Code 실행 구성
 │   └── settings.json        # VS Code Java 설정
+├── gradle/wrapper/          # Gradle Wrapper (생성 필요)
+├── gradlew                  # Gradle Wrapper 실행 스크립트 (Mac/Linux)
+├── gradlew.bat              # Gradle Wrapper 실행 스크립트 (Windows)
 ├── build.gradle             # Gradle 의존성 및 빌드 설정
 ├── settings.gradle
 ├── src/main/java/com/example/bookmanagement/
@@ -74,95 +77,211 @@ book-management/
 
 ---
 
-## Oracle XE 설치 및 계정 생성
+## 사전 준비물
+
+다음이 PC에 설치되어 있어야 합니다.
+
+| 항목 | 다운로드 | 비고 |
+|------|---------|------|
+| **JDK 17** | https://adoptium.net/temurin/releases/?version=17 | Eclipse Temurin 권장. 설치 시 "Set JAVA_HOME" 체크 |
+| **Oracle XE 21c** | https://www.oracle.com/database/technologies/xe-downloads.html | Windows x64 |
+| **VS Code** | https://code.visualstudio.com/ | |
+| **Gradle 8.5** | https://gradle.org/releases/ | binary-only zip (Wrapper 생성용) |
+| **DBeaver Community** | https://dbeaver.io/download/ | DB 관리 도구 (강력 권장) |
+
+VS Code 익스텐션:
+- **Extension Pack for Java** (Microsoft)
+- **Spring Boot Extension Pack** (VMware)
+
+---
+
+## 1단계: JDK 환경변수 확인
+
+cmd 새로 열고:
+
+```bash
+java -version
+```
+
+→ `openjdk version "17.0.x"` 출력 확인
+
+```bash
+echo %JAVA_HOME%
+```
+
+→ JDK 설치 경로 출력 확인 (예: `D:\program_files\Java\jdk-17`)
+
+> **JAVA_HOME이 비어 있거나 17이 아니면**: `Win + R` → `sysdm.cpl` → 고급 → 환경 변수에서 시스템 변수에 `JAVA_HOME`을 JDK 설치 경로로 설정하고, `Path`에 `%JAVA_HOME%\bin`을 추가하세요.
+
+---
+
+## 2단계: Oracle XE 21c 설치
 
 ### Windows
 
 1. [Oracle XE 21c 다운로드](https://www.oracle.com/database/technologies/xe-downloads.html)
-2. `OracleXE213_Win64.zip` 압축 해제 후 `setup.exe` 실행
-3. 설치 중 SYS/SYSTEM 비밀번호 설정 (예: `oracle123`)
-4. 설치 완료 후 서비스 자동 시작 확인
+2. `OracleXE213_Win64.zip` 압축 해제 후 `setup.exe` **우클릭 → 관리자 권한으로 실행**
+3. 설치 마법사 진행
+4. **데이터베이스 비밀번호 입력** (SYS/SYSTEM/PDBADMIN 공통)
+
+> **비밀번호 주의사항**: `@`, `$`, `#` 같은 특수문자는 cmd 파싱 문제를 일으킵니다. **영문+숫자 조합 사용 권장** (예: `oracle1234`)
+
+5. 설치 완료 (10~20분 소요)
 
 ### Mac (Docker 사용 권장)
 
 ```bash
-# Docker로 Oracle XE 21c 실행
 docker run -d \
   --name oracle-xe \
   -p 1521:1521 \
-  -e ORACLE_PASSWORD=oracle123 \
+  -e ORACLE_PASSWORD=oracle1234 \
   gvenzl/oracle-xe:21-slim
 
-# 컨테이너 시작 완료까지 약 1~2분 대기
 docker logs -f oracle-xe
 ```
 
-### bookadmin 계정 생성
+### 서비스 실행 확인
 
-SQL*Plus 또는 DBeaver로 SYSTEM 계정 접속 후 실행:
+`Win + R` → `services.msc` → 다음 두 개가 "실행 중"인지 확인:
+- `OracleServiceXE`
+- `OracleOraDB21Home1TNSListener`
+
+---
+
+## 3단계: bookadmin 계정 생성
+
+cmd에서 SYSTEM 계정으로 접속:
+
+```bash
+sqlplus system/oracle1234@localhost:1521/XE
+```
+
+> 본인이 설치 시 입력한 비밀번호 사용. 비밀번호 입력에 문제가 있다면 [트러블슈팅의 "Oracle 비밀번호 인증 실패"](#oracle-비밀번호-인증-실패) 참고.
+
+`SQL>` 프롬프트에서 한 줄씩 실행:
 
 ```sql
--- PDB(XEPDB1)에 접속
 ALTER SESSION SET CONTAINER = XEPDB1;
-
--- 애플리케이션 전용 계정 생성
 CREATE USER bookadmin IDENTIFIED BY bookadmin123;
 GRANT CONNECT, RESOURCE TO bookadmin;
 GRANT CREATE SESSION TO bookadmin;
 GRANT UNLIMITED TABLESPACE TO bookadmin;
-
--- DBeaver 접속 정보
--- Host: localhost  Port: 1521  Service: XEPDB1
--- User: bookadmin  Password: bookadmin123
+exit
 ```
 
-> **팁**: DBeaver Community Edition을 사용하면 GUI로 편하게 접속할 수 있습니다.
+> **중요**: SYSTEM 계정은 컨테이너 DB(`XE`)에 접속하지만, bookadmin 같은 일반 사용자는 PDB(`XEPDB1`)에 접속합니다. URL의 서비스명이 다른 점에 주의하세요.
 
 ---
 
-## schema.sql / data.sql 실행 방법
+## 4단계: schema.sql / data.sql 실행
 
-### DBeaver 사용 (권장)
+**DBeaver 사용을 강력히 권장합니다.** sqlplus는 한글 인코딩 문제로 데이터가 깨질 수 있습니다.
 
-1. `bookadmin` 계정으로 XEPDB1 연결
-2. `src/main/resources/sql/schema.sql` 파일 열기
-3. 전체 선택(Ctrl+A) → 실행(Ctrl+Enter)
-4. `data.sql` 파일도 동일하게 실행
+### 방법 A: DBeaver 사용 (권장)
 
-### SQL*Plus 사용
+1. [DBeaver Community Edition](https://dbeaver.io/download/) 설치
+2. 새 연결 → **Oracle** 선택
+3. 접속 정보 입력:
+   - Host: `localhost`
+   - Port: `1521`
+   - Database: `XEPDB1` (Service Name 선택)
+   - Username: `bookadmin`
+   - Password: `bookadmin123`
+4. **Test Connection** → 성공 시 **Finish**
+5. SQL Editor 열기 (Ctrl+])
+6. `book-management/src/main/resources/sql/schema.sql` 내용을 복사해서 붙여넣기 → `Alt+X`로 전체 실행
+7. `data.sql`도 동일하게 실행
+
+### 방법 B: sqlplus 사용 (한글 깨짐 주의)
+
+cmd에서 **인코딩 설정 후** 진행:
 
 ```bash
-# XEPDB1에 bookadmin으로 접속
+chcp 65001
+set NLS_LANG=.AL32UTF8
 sqlplus bookadmin/bookadmin123@localhost:1521/XEPDB1
+```
 
-# schema.sql 실행
-SQL> @C:\path\to\book-management\src\main\resources\sql\schema.sql
-
-# data.sql 실행
-SQL> @C:\path\to\book-management\src\main\resources\sql\data.sql
+```sql
+@D:\path\to\book-management\src\main\resources\sql\schema.sql
+@D:\path\to\book-management\src\main\resources\sql\data.sql
 ```
 
 ### 실행 결과 확인
 
 ```sql
-SELECT COUNT(*) FROM category;   -- 5건 확인
-SELECT COUNT(*) FROM book;       -- 20건 확인
+SELECT COUNT(*) FROM category;   -- 5건
+SELECT COUNT(*) FROM book;       -- 20건
+SELECT title, author FROM book WHERE ROWNUM <= 3;  -- 한글이 정상 출력되어야 함
 ```
 
 ---
 
-## application.yml 설정
+## 5단계: Gradle Wrapper 생성
 
-`src/main/resources/application.yml`에서 DB 접속 정보를 수정합니다:
+**이 단계를 건너뛰면 Gradle 버전 충돌로 빌드가 실패합니다.**
+
+프로젝트에 `gradlew`/`gradlew.bat`이 없거나, PC에 너무 최신 버전의 Gradle이 설치되어 있으면 `NoSuchMethodError: LenientConfiguration.getArtifacts` 같은 에러가 발생합니다. Gradle 8.5로 Wrapper를 만들어 버전을 고정하세요.
+
+### 5-1. Gradle 8.5 다운로드
+
+1. https://gradle.org/releases/ 에서 **Gradle 8.5** binary-only zip 다운로드
+2. 압축 해제 → 원하는 위치에 배치 (예: `D:\gradle-8.5\`)
+3. 폴더 구조 확인: `D:\gradle-8.5\bin\gradle.bat` 경로가 정확한지 확인
+
+### 5-2. 프로젝트에 Wrapper 생성
+
+cmd에서 프로젝트 폴더로 이동:
+
+```bash
+cd D:\path\to\book-management
+D:\gradle-8.5\bin\gradle.bat wrapper --gradle-version 8.5
+```
+
+성공 시 다음 출력:
+```
+BUILD SUCCESSFUL in 2s
+```
+
+프로젝트에 `gradlew`, `gradlew.bat`, `gradle/wrapper/` 폴더가 생성됩니다.
+
+---
+
+## 6단계: application.yml 확인
+
+**MyBatis가 DTO 클래스를 못 찾는 문제를 방지하기 위해 `type-aliases-package`에 두 패키지가 모두 들어있어야 합니다.**
+
+`book-management/src/main/resources/application.yml` 내용 확인:
 
 ```yaml
 spring:
   datasource:
-    url: jdbc:oracle:thin:@localhost:1521/XEPDB1  # Oracle 접속 URL
-    username: bookadmin                            # ← 계정명 수정
-    password: bookadmin123                         # ← 비밀번호 수정
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
+    username: ${DB_USERNAME:bookadmin}
+    password: ${DB_PASSWORD:bookadmin123}
     driver-class-name: oracle.jdbc.OracleDriver
+  thymeleaf:
+    cache: false
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.bookmanagement.domain, com.example.bookmanagement.dto
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.example.bookmanagement.mapper: DEBUG
+
+server:
+  port: 8080
 ```
+
+> 만약 `type-aliases-package`에 `dto`가 누락되어 있으면, 실행 시 `Could not resolve type alias 'BookSearchDto'` 에러가 발생합니다.
+
+### DB 접속 정보 변경이 필요하면
+
+DB 사용자명/비밀번호가 다르면 `application.yml`을 직접 수정하거나, 환경변수로 덮어쓸 수 있습니다 (다음 섹션 참고).
 
 ---
 
@@ -198,12 +317,11 @@ export DB_PASSWORD=mypassword
 ./gradlew bootRun
 ```
 
-> **보안 팁**: 운영 환경에서는 코드나 설정 파일에 비밀번호를 직접 적지 마세요.  
-> AWS Secrets Manager, HashiCorp Vault, Kubernetes Secret 등의 시크릿 매니저를 통해 환경변수를 주입하는 방식이 권장됩니다.
+> **보안 팁**: 운영 환경에서는 코드나 설정 파일에 비밀번호를 직접 적지 마세요. AWS Secrets Manager, HashiCorp Vault, Kubernetes Secret 등의 시크릿 매니저를 통해 환경변수를 주입하는 방식이 권장됩니다.
 
 ---
 
-## VS Code에서 실행하는 방법
+## 7단계: VS Code에서 프로젝트 열기
 
 ### 필수 Extension 설치
 
@@ -214,56 +332,77 @@ VS Code에서 다음 Extension Pack을 설치합니다:
 | **Extension Pack for Java** (Microsoft) | Java 언어 지원, 디버거, Maven/Gradle |
 | **Spring Boot Extension Pack** (VMware) | Spring Boot 대시보드, 실행/디버그 지원 |
 
-### 실행 방법 (3가지 중 선택)
+### 프로젝트 열기
 
-**방법 1: Spring Boot Dashboard (권장)**
-1. 좌측 사이드바 → Spring Boot 아이콘 클릭
+1. `File` → `Open Folder` → `book-management` 폴더 선택
+2. "Do you trust the authors?" → **Yes**
+3. **Gradle 자동 빌드 대기** (첫 빌드 5~10분 소요, 의존성 다운로드)
+4. 좌측 하단이 **"Java: Ready"** 가 되면 준비 완료
+
+> 빨간 `Java: Error`가 나오면, OUTPUT 패널에서 "Language Support for Java" 선택 후 메시지 확인. JDK 환경변수나 Gradle 버전 문제일 가능성이 높습니다.
+
+---
+
+## 8단계: 애플리케이션 실행
+
+### 방법 1: 터미널 (가장 확실)
+
+VS Code 터미널 열기 (`` Ctrl + ` ``):
+
+```bash
+.\gradlew bootRun
+```
+
+### 방법 2: Spring Boot Dashboard
+
+1. 좌측 사이드바 → Spring Boot 아이콘(잎사귀) 클릭
 2. `BookManagementApplication` 옆 ▶ 버튼 클릭
 
-**방법 2: Run and Debug (F5)**
-1. `F5` 키 또는 실행 → 디버깅 시작
-2. `.vscode/launch.json`의 `BookManagementApplication` 구성으로 실행
+### 방법 3: F5 (디버그 모드)
 
-**방법 3: 터미널**
-```bash
-cd book-management
-./gradlew bootRun
-```
+`BookManagementApplication.java` 파일을 열고 `F5` 키.
 
-### 접속 URL
-
-실행 후 브라우저에서 접속:
+### 성공 로그
 
 ```
-http://localhost:8080/books
+Started BookManagementApplication in 5.234 seconds
+Tomcat started on port 8080 (http) with context path ''
 ```
 
-REST API 테스트:
-```
-http://localhost:8080/api/books
-http://localhost:8080/api/books/1
-```
+---
+
+## 9단계: 브라우저 접속
+
+| URL | 설명 |
+|-----|------|
+| http://localhost:8080/books | 도서 목록 (메인 화면) |
+| http://localhost:8080/books/1 | 도서 상세 |
+| http://localhost:8080/books/new | 도서 등록 폼 |
+| http://localhost:8080/api/books | REST API (JSON 목록) |
+| http://localhost:8080/api/books/1 | REST API (JSON 단건) |
+
+도서 20권이 한글로 정상 표시되면 **완성!** 🎉
 
 ---
 
 ## 실행 순서 요약
 
 ```
-① Oracle XE 21c 설치
+① JDK 17 설치 + JAVA_HOME 환경변수 확인
         ↓
-② bookadmin 계정 생성 (SYSTEM 계정으로 SQL 실행)
+② Oracle XE 21c 설치 (특수문자 없는 비밀번호 권장)
         ↓
-③ schema.sql 실행 (테이블 + 시퀀스 생성)
+③ sqlplus로 bookadmin 계정 생성
         ↓
-④ data.sql 실행 (카테고리 5건, 도서 20건 INSERT)
+④ DBeaver로 schema.sql + data.sql 실행 (한글 깨짐 방지)
         ↓
-⑤ application.yml DB 접속 정보 확인/수정
+⑤ Gradle 8.5 다운로드 → gradle wrapper 생성
         ↓
-⑥ VS Code에서 Extension Pack for Java + Spring Boot Extension Pack 설치
+⑥ application.yml 확인 (type-aliases-package에 dto 포함)
         ↓
-⑦ 프로젝트 폴더 열기 → Gradle 자동 빌드 완료 대기
+⑦ VS Code에서 폴더 열기 → Java: Ready 확인
         ↓
-⑧ Spring Boot Dashboard 또는 F5로 실행
+⑧ .\gradlew bootRun 으로 실행
         ↓
 ⑨ http://localhost:8080/books 접속
 ```
@@ -296,7 +435,7 @@ spring:
   h2:
     console:
       enabled: true
-      path: /h2-console   # H2 웹 콘솔 경로
+      path: /h2-console
   sql:
     init:
       mode: always
@@ -305,7 +444,7 @@ spring:
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com.example.bookmanagement.domain
+  type-aliases-package: com.example.bookmanagement.domain, com.example.bookmanagement.dto
   configuration:
     map-underscore-to-camel-case: true
 
@@ -320,8 +459,8 @@ logging:
 
 | URL | 설명 |
 |-----|------|
-| `http://localhost:8080/books` | 도서 관리 메인 화면 |
-| `http://localhost:8080/h2-console` | H2 웹 콘솔 (DB 직접 조회) |
+| http://localhost:8080/books | 도서 관리 메인 화면 |
+| http://localhost:8080/h2-console | H2 웹 콘솔 (DB 직접 조회) |
 
 H2 콘솔 접속 정보:
 - JDBC URL: `jdbc:h2:mem:bookdb`
@@ -419,6 +558,8 @@ public Book getBookById(Long id) { ... }
 - `<where>`: 동적 WHERE 절 (불필요한 AND 자동 제거)
 - `<include refid="...">`: SQL 조각 재사용
 - `<selectKey>`: INSERT 전 Oracle 시퀀스 값 채번
+
+**type-aliases-package 설정**: `application.yml`의 `type-aliases-package`에 명시된 패키지의 클래스는 XML에서 풀 경로 없이 클래스명만으로 사용 가능합니다. 이 프로젝트에서는 `domain`과 `dto` 두 패키지를 모두 등록했습니다.
 
 ---
 
@@ -530,45 +671,161 @@ public class GlobalExceptionHandler {
 
 ## 트러블슈팅
 
+### Oracle 비밀번호 인증 실패
+
+```
+ORA-01017: invalid username/password
+```
+
+**원인 1: 비밀번호가 실제로 다름**
+
+기억하는 비밀번호로 다시 시도. 비밀번호에 특수문자(`@`, `$`, `#` 등)가 있으면 cmd가 잘못 해석할 수 있음.
+
+**원인 2: 비밀번호의 `@` 문자**
+
+`@`는 sqlplus에서 호스트 구분자로 인식되어 파싱이 깨집니다. 비밀번호 부분만 따로 입력:
+
+```bash
+sqlplus system@localhost:1521/XE
+Enter password: [여기에 입력, 화면에 안 보임]
+```
+
+**원인 3: 비밀번호를 모름 → 재설정**
+
+cmd를 **관리자 권한**으로 실행 후:
+
+```bash
+sqlplus / as sysdba
+```
+
+```sql
+ALTER USER system IDENTIFIED BY oracle1234;
+ALTER USER system ACCOUNT UNLOCK;
+exit
+```
+
+새 비밀번호로 재접속:
+```bash
+sqlplus system/oracle1234@localhost:1521/XE
+```
+
+---
+
+### Gradle 빌드 실패: NoSuchMethodError
+
+```
+NoSuchMethodError: 'java.util.Set org.gradle.api.artifacts.LenientConfiguration.getArtifacts(...)'
+```
+
+**원인**: PC에 설치된 Gradle이 너무 최신 버전이거나, Gradle Wrapper가 없어서 시스템 Gradle이 사용됨.
+
+**해결**: [5단계: Gradle Wrapper 생성](#5단계-gradle-wrapper-생성)을 진행해서 Gradle 8.5로 Wrapper 생성. 이후:
+
+```bash
+.\gradlew bootRun
+```
+
+`gradlew` 사용 시 시스템 Gradle 대신 8.5가 자동으로 사용됩니다.
+
+---
+
+### MyBatis: type alias를 찾을 수 없음
+
+```
+Could not resolve type alias 'BookSearchDto'.
+Cause: java.lang.ClassNotFoundException: Cannot find class: BookSearchDto
+```
+
+**원인**: `application.yml`의 `type-aliases-package`에 `dto` 패키지가 누락됨.
+
+**해결**: `application.yml` 수정:
+
+```yaml
+mybatis:
+  type-aliases-package: com.example.bookmanagement.domain, com.example.bookmanagement.dto
+```
+
+콤마로 두 패키지를 모두 지정해야 합니다.
+
+---
+
+### sqlplus에서 한글 깨짐
+
+```
+ERROR: ORA-01756: 단일 인용부를 지정해 주십시오
+ERROR: ORA-00917: 누락된 콤마
+```
+
+**원인**: sqlplus가 SQL 파일을 잘못된 인코딩(MS949/CP949)으로 읽음. 한글이 깨지면서 따옴표 짝까지 어그러짐.
+
+**해결**: cmd 인코딩 설정 후 재실행:
+
+```bash
+chcp 65001
+set NLS_LANG=.AL32UTF8
+sqlplus bookadmin/bookadmin123@localhost:1521/XEPDB1
+```
+
+또는 **DBeaver를 사용하세요** (한글 인코딩 문제 없음).
+
+이미 깨진 데이터가 들어갔다면 정리:
+```sql
+DELETE FROM book;
+DELETE FROM category;
+COMMIT;
+DROP SEQUENCE seq_book;
+DROP SEQUENCE seq_category;
+CREATE SEQUENCE seq_book START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE seq_category START WITH 1 INCREMENT BY 1 NOCACHE;
+```
+
+---
+
 ### Oracle 드라이버를 찾을 수 없음
 ```
 Unable to load class oracle.jdbc.OracleDriver
 ```
-→ `build.gradle`의 `ojdbc11` 버전 확인 후 `./gradlew --refresh-dependencies` 실행
+→ `build.gradle`의 `ojdbc11` 버전 확인 후 `.\gradlew --refresh-dependencies` 실행
+
+---
 
 ### DB 연결 실패 (Connection refused)
 ```
 ORA-12541: TNS:no listener
 ```
 → Oracle 서비스 실행 여부 확인:
-- Windows: 서비스 관리자에서 `OracleServiceXE`, `OracleXETNSListener` 시작
+- Windows: `services.msc`에서 `OracleServiceXE`, `OracleOraDB21Home1TNSListener` 시작
 - Docker: `docker start oracle-xe`
+
+---
 
 ### XEPDB1 접속 오류
 ```
 ORA-12514: TNS:listener does not currently know of service requested
 ```
-→ URL을 `jdbc:oracle:thin:@localhost:1521:XE`로 변경 (SID 방식) 또는 리스너 재시작
+→ URL의 서비스명 확인:
+- SYSTEM 계정 → `XE` 사용
+- bookadmin 같은 일반 사용자 → `XEPDB1` 사용
 
-### Gradle 빌드 시 JDK 버전 오류
-```
-error: release version 17 not supported
-```
-→ VS Code에서 Java 17 JDK 경로 설정:
-1. `Ctrl+Shift+P` → `Java: Configure Java Runtime`
-2. JDK 17 경로 지정
+---
 
-### Thymeleaf 템플릿 캐시로 변경 미반영
-→ `application.yml`에서 `spring.thymeleaf.cache: false` 확인 (이미 설정됨)
+### VS Code의 Java: Error
 
-### Lombok 어노테이션이 인식되지 않음
-→ VS Code Extension `Lombok Annotations Support for VS Code` 설치
+좌측 하단에 빨간 `Java: Error`가 표시됨.
+
+**진단**: OUTPUT 패널 → 우측 드롭다운에서 "Language Support for Java" 선택 → 메시지 확인
+
+**자주 있는 원인**:
+1. `JAVA_HOME` 환경변수가 잘못된 경로를 가리킴 → 환경변수 수정 후 VS Code 재시작
+2. PATH의 우선순위 충돌 (Oracle javapath 등) → `where java`로 확인
+3. Gradle 버전 호환성 문제 → [Gradle Wrapper 생성](#5단계-gradle-wrapper-생성)
+
+---
 
 ### 포트 8080이 이미 사용 중
 ```
 Web server failed to start. Port 8080 was already in use.
 ```
-다른 프로세스가 8080 포트를 점유하고 있습니다.
 
 - **Windows**: `netstat -ano | findstr :8080` 으로 PID 확인 후 `taskkill /PID [PID] /F`
 - **Mac/Linux**: `lsof -i :8080` 으로 PID 확인 후 `kill -9 [PID]`
@@ -578,30 +835,45 @@ Web server failed to start. Port 8080 was already in use.
     port: 8081
   ```
 
+---
+
 ### Mac/Linux에서 gradlew 권한 오류
 ```
 permission denied: ./gradlew
 ```
-→ 실행 권한 부여 후 재시도:
+→ 실행 권한 부여:
 ```bash
 chmod +x gradlew
 ./gradlew bootRun
 ```
 
+---
+
+### Lombok 어노테이션이 인식되지 않음
+→ VS Code Extension `Lombok Annotations Support for VS Code` 설치 후 재시작
+
+---
+
 ### 첫 빌드가 너무 오래 걸림 (정상 동작)
 
-첫 빌드 시 Gradle이 Spring Boot, MyBatis, Oracle 드라이버 등 수십 개의 의존성을 Maven Central에서 다운로드합니다.
+첫 빌드 시 Gradle이 Spring Boot, MyBatis, Oracle 드라이버 등 수십 개의 의존성을 다운로드합니다.
 
-- 첫 빌드는 네트워크 환경에 따라 **5~10분**이 걸릴 수 있음
+- 첫 빌드는 네트워크 환경에 따라 **5~10분** 소요
 - VS Code 우측 하단 상태바의 진행 표시 확인
 - 멈춘 것처럼 보여도 강제 종료하지 말 것
 - 두 번째 빌드부터는 로컬 캐시를 사용하므로 빠름 (수십 초 이내)
 
 ---
 
+### Thymeleaf 템플릿 캐시로 변경 미반영
+→ `application.yml`에서 `spring.thymeleaf.cache: false` 확인 (이미 설정됨)
+
+---
+
 ## 개발 환경
 
-- JDK 17 (Eclipse Temurin 또는 Oracle JDK)
+- JDK 17 (Eclipse Temurin)
 - Oracle XE 21c
+- Gradle 8.5 (Wrapper)
 - VS Code + Extension Pack for Java + Spring Boot Extension Pack
-- DBeaver Community (DB 관리 도구, 선택 사항)
+- DBeaver Community (DB 관리 도구, 권장)
